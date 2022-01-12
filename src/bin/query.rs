@@ -1,19 +1,5 @@
-use calculate_differences::{node::{build_trees}, error::TimelineError, opts::TelemetryTimelineOpts, tm_csv::{parse_tracks, Track}, query::parse_query, zone::parse_zones};
+use calculate_differences::{node::{build_trees}, error::TimelineError, opts::TelemetryTimelineOpts, tm_csv::{parse_tracks, Track}, query::{parse_query, Query, run_query}, zone::parse_zones};
 use structopt::StructOpt;
-
-const LEADER: &str = "V8.ExternalCallback";
-
-struct OutZone {
-    measurement_type: String,
-    name: String,
-    duration: u64,
-}
-
-impl ToString for OutZone {
-    fn to_string(&self) -> String {
-        return format!("{},{},{}", self.measurement_type, self.name, self.duration);
-    }
-}
 
 /*
 fn create_time_to_out_zones(
@@ -59,13 +45,13 @@ fn main() -> Result<(), TimelineError> {
 
     let opts = TelemetryTimelineOpts::from_args();
     let query = parse_query(&opts)?;
-    let main_track: Track = match parse_tracks(&opts)? {
-        Some(track) => track,
-        None => unreachable!("You should always have a main track"),
-    };
-
+    let main_track = parse_tracks(&opts)?.expect("You should always have a main track");
     let zones = parse_zones(&main_track, &query, &opts)?;
-    let _nodes = build_trees(zones, &query);
+    let nodes = build_trees(zones, &query);
+
+    /*
+    run_query(&nodes, &query.queries)?;
+    */
 
     /*
     let leaders = next_leaders;

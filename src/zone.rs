@@ -58,6 +58,10 @@ impl Zone {
         return self.time_end > zone.time_end;
     }
 
+    pub fn completes_by(&self, zone: &Zone) -> bool {
+        return self.time_end < zone.time_start;
+    }
+
     pub fn get_start_distance(&self, zone: &Zone) -> u64 {
         return zone.time_start.abs_diff(self.time_start);
     }
@@ -116,10 +120,16 @@ mod test {
         let zone = Zone::new("foo".to_string(), 50, 100);
         let zone2 = Zone::new("foo".to_string(), 68, 71);
         let zone3 = Zone::new("foo".to_string(), 68, 101);
+        let zone4 = Zone::new("foo".to_string(), 101, 102);
 
         assert_eq!(zone.ends_after(&zone), false);
         assert_eq!(zone.ends_after(&zone2), true);
         assert_eq!(zone.ends_after(&zone3), false);
+
+        assert_eq!(zone.completes_by(&zone), false);
+        assert_eq!(zone.completes_by(&zone2), false);
+        assert_eq!(zone.completes_by(&zone3), false);
+        assert_eq!(zone.completes_by(&zone4), true);
     }
 
     #[test]

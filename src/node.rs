@@ -79,11 +79,22 @@ impl Node {
         return None;
     }
 
-    pub fn children_by_name(&self, name: &str) -> Vec<&Node> {
+    pub fn nodes_by_name(&self, name: &str) -> Vec<&Node> {
+        if self.zone.name == name {
+            return vec![self];
+        }
         return self.children.iter().flat_map(|n| n.child_by_name(name)).collect::<Vec<&Node>>()
     }
 
-    pub fn time_to(&self, name: &str, side: TimeCalculation) -> Option<u64> {
+    /// +----------------------------------------------+
+    /// |                A                             |
+    /// s----------------------------------------------e
+    ///  +----------+     +----------+   +----------+
+    ///  | B (...)  |     |    C     |   | D (...)  |
+    ///  s----------e     s----------e   s----------e
+    ///
+    ///  time_to = (As - Cs) - Bdur
+    pub fn time_to(&self, name: &str, side: &TimeCalculation) -> Option<u64> {
         if !self.contains_zone(name) {
             return None;
         }
@@ -94,9 +105,25 @@ impl Node {
         };
 
         if let TimeCalculation::Start = side {
-            return Some(self.zone.get_start_distance(&child.zone));
+            // B from the above diagram
+            let b_sum = self.children
+                .iter()
+                .filter(|c| c.zone.completes_by(&child.zone))
+                .fold(0, |sum, child| {
+                    return sum + child.zone.duration;
+                });
+
+            return Some(self.zone.get_start_distance(&child.zone) - b_sum);
         }
-        return Some(self.zone.get_end_distance(&child.zone));
+
+        // D from the above diagram
+        let d_sum = self.children
+            .iter()
+            .filter(|c| child.zone.completes_by(&c.zone))
+            .fold(0, |sum, child| {
+                return sum + child.zone.duration;
+            });
+        return Some(self.zone.get_end_distance(&child.zone) - d_sum);
     }
 
     pub fn calc_child_self_time(&self, name: &str) -> Option<u64> {
@@ -190,10 +217,11 @@ mod test {
             Zone::new("B".to_string(), 68, 71),
             Zone::new("C".to_string(), 68, 70),
         ];
+
         let query: QueryConfig = QueryConfig {
             root: "A".to_string(),
             zones: HashSet::new(),
-            queries: HashMap::new(),
+            queries: vec![],
         };
 
         let roots = build_trees(zones, &query);
@@ -232,20 +260,20 @@ mod test {
         let query: QueryConfig = QueryConfig {
             root: "A".to_string(),
             zones: HashSet::new(),
-            queries: HashMap::new(),
+            queries: vec![],
         };
 
         let roots = build_trees(zones, &query);
         assert_eq!(roots.len(), 2);
 
-        let b_children = roots.get(0).unwrap().children_by_name("B");
-        let c_children = roots.get(0).unwrap().children_by_name("C");
+        let b_children = roots.get(0).unwrap().nodes_by_name("B");
+        let c_children = roots.get(0).unwrap().nodes_by_name("C");
 
         assert_eq!(b_children.len(), 1);
         assert_eq!(c_children.len(), 1);
 
-        let b_children = roots.get(1).unwrap().children_by_name("B");
-        let c_children = roots.get(1).unwrap().children_by_name("C");
+        let b_children = roots.get(1).unwrap().nodes_by_name("B");
+        let c_children = roots.get(1).unwrap().nodes_by_name("C");
 
         assert_eq!(b_children.len(), 1);
         assert_eq!(c_children.len(), 0);
@@ -298,21 +326,28 @@ mod test {
         let head_zone = Zone::new("foo".to_string(), 0, 100);
         let mut head = Node::new(head_zone);
 
+        head.push(Node::new(Zone::new("before-bar".to_string(), 20, 38)));
+        head.push(Node::new(Zone::new("before-bar-2".to_string(), 15, 18)));
         head.push(Node::new(Zone::new("bar".to_string(), 40, 50)));
         head.push(Node::new(Zone::new("buzz".to_string(), 41, 48)));
         head.push(Node::new(Zone::new("bluh".to_string(), 43, 44)));
+        head.push(Node::new(Zone::new("after-bar".to_string(), 70, 75)));
+        head.push(Node::new(Zone::new("after-bar-2".to_string(), 77, 78)));
 
         // self times
-        assert_eq!(head.calc_self_time(), 90);
+        assert_eq!(head.calc_self_time(), 63);
         assert_eq!(head.calc_child_self_time("buzz").unwrap(), 6);
         assert_eq!(head.calc_child_self_time("bluh").unwrap(), 1);
         assert_eq!(head.calc_child_self_time("blazz"), None);
 
         // distances
-        assert_eq!(head.time_to("buzz", TimeCalculation::Start).unwrap(), 41);
-        assert_eq!(head.time_to("bluh", TimeCalculation::Start).unwrap(), 43);
-        assert_eq!(head.time_to("buzz", TimeCalculation::End).unwrap(), 52);
-        assert_eq!(head.time_to("bluh", TimeCalculation::End).unwrap(), 56);
+        let b_sum = 38 - 20 + 18 - 15;
+        assert_eq!(head.time_to("buzz", &TimeCalculation::Start).unwrap(), 41 - 0 - b_sum);
+        assert_eq!(head.time_to("bluh", &TimeCalculation::Start).unwrap(), 43 - 0 - b_sum);
+
+        let d_sum = 75 - 70 + 78 - 77;
+        assert_eq!(head.time_to("buzz", &TimeCalculation::End).unwrap(), 100 - 48 - d_sum);
+        assert_eq!(head.time_to("bluh", &TimeCalculation::End).unwrap(), 100 - 44 - d_sum);
 
         return Ok(());
     }
