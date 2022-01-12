@@ -205,7 +205,7 @@ pub fn build_trees(zones: Vec<Zone>, query: &QueryConfig) -> Vec<Node> {
 /// Note that on tests I get lazy and simply just do box dyn errors because
 /// nothing should error here.
 mod test {
-    use std::collections::{HashMap, HashSet};
+    use std::collections::{HashSet};
 
     use super::*;
     use crate::{query::QueryConfig, zone::Zone};

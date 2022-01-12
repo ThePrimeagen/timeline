@@ -1,4 +1,4 @@
-use calculate_differences::{node::{build_trees}, error::TimelineError, opts::TelemetryTimelineOpts, tm_csv::{parse_tracks, Track}, query::{parse_query, Query, run_query}, zone::parse_zones};
+use calculate_differences::{node::{build_trees}, error::TimelineError, opts::TelemetryTimelineOpts, tm_csv::{parse_tracks}, query::{parse_query}, zone::parse_zones};
 use structopt::StructOpt;
 
 /*
@@ -47,7 +47,7 @@ fn main() -> Result<(), TimelineError> {
     let query = parse_query(&opts)?;
     let main_track = parse_tracks(&opts)?.expect("You should always have a main track");
     let zones = parse_zones(&main_track, &query, &opts)?;
-    let nodes = build_trees(zones, &query);
+    let _nodes = build_trees(zones, &query);
 
     /*
     run_query(&nodes, &query.queries)?;
