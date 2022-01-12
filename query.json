@@ -1,10 +1,16 @@
 {
     "root": "V8.Execute",
+    "ignores": [
+        "V8TracingController.AddTraceEvent",
+        "V8TracingController.UpdateTraceEventDuration"
+    ],
     "zones": [
+        "V8.Execute",
         "toImpleArgs2",
         "toImplArgs",
         "toImplType",
         "V8TracingController.AddTraceEvent",
+        "V8TracingController.UpdateTraceEventDuration",
         "V8.ExternalCallback",
         "INST_NrdpBridge2_CLASSmono",
         "NrdpBridge2.mono",
@@ -31,7 +37,49 @@
         "from": "INST_DataBufferBridge_CLASSclear",
         "to": "DataBufferBridge.clear",
         "start": true,
-        "end": true,
+        "end": false
+    }, {
+        "type": "Distance",
+        "from": "INST_DataBufferBridge_CLASSset",
+        "to": "DataBufferBridge.set",
+        "start": true,
+        "end": false
+    }, {
+        "type": "Count",
+        "root": "V8.Execute",
+        "child_name": "INST_DataBufferBridge_CLASSappend"
+    }, {
+        "type": "Count",
+        "root": "V8.Execute",
+        "child_name": "INST_DataBufferBridge_CLASSclear"
+    }, {
+        "type": "Count",
+        "root": "V8.Execute",
+        "child_name": "INST_DataBufferBridge_CLASSbufferLength"
+    }, {
+        "type": "Count",
+        "root": "V8.Execute",
+        "child_name": "INST_DataBufferBridge_CLASSbyteLength"
+    }, {
+        "type": "Count",
+        "root": "V8.Execute",
+        "child_name": "INST_DataBufferBridge_CLASSgetUint32BE"
+    }, {
+        "type": "Count",
+        "root": "V8.Execute",
+        "child_name": "INST_DataBufferBridge_CLASSappend"
+    }, {
+        "type": "Count",
+        "root": "V8.Execute",
+        "child_name": "INST_DataBufferBridge_CLASSgetUint16BE"
+    }, {
+        "type": "Count",
+        "root": "V8.Execute",
+        "child_name": "INST_DataBufferBridge_CLASSslice"
+    }, {
+        "type": "Count",
+        "root": "V8.Execute",
+        "child_name": "INST_DataBufferBridge_CLASSsetUint8"
     }]
 }
 

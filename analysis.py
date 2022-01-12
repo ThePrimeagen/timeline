@@ -8,7 +8,7 @@ def get_csv(filename):
         csv_arr = []
         track_id = 0
         for row in csv_reader:
-            if len(row) > 3:
+            if len(row) > 2:
                 row[2] = int(row[2])
                 csv_arr.append(row)
 

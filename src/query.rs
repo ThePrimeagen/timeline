@@ -20,6 +20,16 @@ pub enum Query {
         start: bool,
         end: bool,
     },
+    SelfTime {
+        node: String
+    },
+    TotalTime {
+        node: String
+    },
+    Count {
+        root: String,
+        child_name: String
+    },
 }
 
 #[derive(Debug, Deserialize)]
@@ -27,18 +37,19 @@ pub struct QueryConfig {
     pub root: String,
     pub zones: HashSet<String>,
     pub queries: Vec<Query>,
+    pub ignores: Vec<String>,
 }
 
 #[derive(Debug, PartialEq)]
 pub struct QueryResult {
     measurement_type: String,
     name: String,
-    duration: u64,
+    count: u64,
 }
 
 impl ToString for QueryResult {
     fn to_string(&self) -> String {
-        return format!("{},{},{}", self.measurement_type, self.name, self.duration);
+        return format!("{},{},{}", self.measurement_type, self.name, self.count);
     }
 }
 
@@ -51,22 +62,23 @@ fn calculate_distance(
     froms: &[&Node],
     from: &str,
     to: &str,
+    ignores: &[String],
     side: TimeCalculation,
 ) -> Vec<QueryResult> {
     return froms
         .iter()
-        .flat_map(|c| c.time_to(&to, &side))
+        .flat_map(|c| c.time_to(&to, ignores, &side))
         .map(|d| {
             return QueryResult {
                 measurement_type: "Distance".to_string(),
                 name: format!("{}-{}", from, to),
-                duration: d,
+                count: d,
             };
         })
         .collect::<Vec<QueryResult>>();
 }
 
-pub fn run_query(roots: &Vec<Node>, query: &Query) -> Vec<QueryResult> {
+pub fn run_query(roots: &Vec<Node>, query: &Query, query_config: &QueryConfig) -> Vec<QueryResult> {
     // TODO: Probably should extract this.  Its... bad
     match query {
         Query::Distance {
@@ -81,15 +93,62 @@ pub fn run_query(roots: &Vec<Node>, query: &Query) -> Vec<QueryResult> {
                 .collect::<Vec<&Node>>();
 
             return start
-                .then(|| calculate_distance(&froms, from, to, TimeCalculation::Start))
+                .then(|| calculate_distance(&froms, from, to, &query_config.ignores, TimeCalculation::Start))
                 .unwrap_or_else(|| vec![])
                 .into_iter()
                 .chain(
-                    end.then(|| calculate_distance(&froms, from, to, TimeCalculation::End))
+                    end.then(|| calculate_distance(&froms, from, to, &query_config.ignores, TimeCalculation::End))
                         .unwrap_or_else(|| vec![])
                         .into_iter(),
                 )
                 .collect::<Vec<QueryResult>>();
+        },
+
+        Query::SelfTime { node } => {
+            return roots
+                .iter()
+                .flat_map(|r| r.nodes_by_name(node))
+                .map(|n| {
+                    return QueryResult {
+                        measurement_type: "SelfTime".to_string(),
+                        name: node.clone(),
+                        count: n.calc_self_time(),
+                    }
+                })
+                .collect();
+        }
+
+        Query::TotalTime { node } => {
+            return roots
+                .iter()
+                .flat_map(|r| r.nodes_by_name(node))
+                .map(|n| {
+                    return QueryResult {
+                        measurement_type: "TotalTime".to_string(),
+                        name: node.clone(),
+                        count: n.zone.duration,
+                    }
+                })
+                .collect();
+        }
+
+        Query::Count {
+            root,
+            child_name,
+        } => {
+            return roots
+                .iter()
+                .flat_map(|r| r.nodes_by_name(root))
+                .map(|n| n.nodes_by_name(&child_name).len() )
+                .filter(|&c| c > 0)
+                .map(|c| {
+                    return QueryResult {
+                        measurement_type: "Count".to_string(),
+                        name: format!("{}-{}", root, child_name),
+                        count: c as u64,
+                    };
+                })
+                .collect();
         }
     }
 }
@@ -116,13 +175,14 @@ mod test {
             Zone::new("C".to_string(), 230, 240),
         ];
 
-        let query: QueryConfig = QueryConfig {
+        let query_config: QueryConfig = QueryConfig {
             root: "A".to_string(),
             zones: HashSet::new(),
             queries: vec![],
+            ignores: vec![],
         };
 
-        let roots = build_trees(zones, &query);
+        let roots = build_trees(zones, &query_config);
         let results = run_query(
             &roots,
             &Query::Distance {
@@ -131,23 +191,24 @@ mod test {
                 start: true,
                 end: false,
             },
+            &query_config,
         );
 
         assert_eq!(results.len(), 3);
         assert_eq!(results.get(0).unwrap(), &QueryResult {
             measurement_type: "Distance".to_string(),
             name: "A-B".to_string(),
-            duration: 68 - 50,
+            count: 68 - 50,
         });
         assert_eq!(results.get(1).unwrap(), &QueryResult {
             measurement_type: "Distance".to_string(),
             name: "A-B".to_string(),
-            duration: 110 - 101,
+            count: 110 - 101,
         });
         assert_eq!(results.get(2).unwrap(), &QueryResult {
             measurement_type: "Distance".to_string(),
             name: "A-B".to_string(),
-            duration: 270 - 200 - (240 - 230),
+            count: 270 - 200 - (240 - 230),
         });
     }
 }

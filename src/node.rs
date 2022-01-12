@@ -83,7 +83,11 @@ impl Node {
         if self.zone.name == name {
             return vec![self];
         }
-        return self.children.iter().flat_map(|n| n.child_by_name(name)).collect::<Vec<&Node>>()
+        return self
+            .children
+            .iter()
+            .flat_map(|n| n.child_by_name(name))
+            .collect::<Vec<&Node>>();
     }
 
     /// +----------------------------------------------+
@@ -94,7 +98,7 @@ impl Node {
     ///  s----------e     s----------e   s----------e
     ///
     ///  time_to = (As - Cs) - Bdur
-    pub fn time_to(&self, name: &str, side: &TimeCalculation) -> Option<u64> {
+    pub fn time_to(&self, name: &str, ignores: &[String], side: &TimeCalculation) -> Option<u64> {
         if !self.contains_zone(name) {
             return None;
         }
@@ -104,26 +108,41 @@ impl Node {
             _ => return None,
         };
 
+        let ignore_duration = ignores
+            .iter()
+            .flat_map(|i| self.nodes_by_name(i))
+            .filter(|n| {
+                return if let TimeCalculation::Start = side {
+                    n.zone.completes_by(&child.zone)
+                } else {
+                    child.zone.completes_by(&n.zone)
+                };
+            })
+            .map(|n| n.zone.duration)
+            .sum::<u64>();
+
         if let TimeCalculation::Start = side {
             // B from the above diagram
-            let b_sum = self.children
+            let b_sum = self
+                .children
                 .iter()
                 .filter(|c| c.zone.completes_by(&child.zone))
                 .fold(0, |sum, child| {
                     return sum + child.zone.duration;
                 });
 
-            return Some(self.zone.get_start_distance(&child.zone) - b_sum);
+            return Some(self.zone.get_start_distance(&child.zone) - b_sum - ignore_duration);
         }
 
         // D from the above diagram
-        let d_sum = self.children
+        let d_sum = self
+            .children
             .iter()
             .filter(|c| child.zone.completes_by(&c.zone))
             .fold(0, |sum, child| {
                 return sum + child.zone.duration;
             });
-        return Some(self.zone.get_end_distance(&child.zone) - d_sum);
+        return Some(self.zone.get_end_distance(&child.zone) - d_sum - ignore_duration);
     }
 
     pub fn calc_child_self_time(&self, name: &str) -> Option<u64> {
@@ -205,7 +224,7 @@ pub fn build_trees(zones: Vec<Zone>, query: &QueryConfig) -> Vec<Node> {
 /// Note that on tests I get lazy and simply just do box dyn errors because
 /// nothing should error here.
 mod test {
-    use std::collections::{HashSet};
+    use std::collections::HashSet;
 
     use super::*;
     use crate::{query::QueryConfig, zone::Zone};
@@ -222,6 +241,7 @@ mod test {
             root: "A".to_string(),
             zones: HashSet::new(),
             queries: vec![],
+            ignores: vec![],
         };
 
         let roots = build_trees(zones, &query);
@@ -261,6 +281,7 @@ mod test {
             root: "A".to_string(),
             zones: HashSet::new(),
             queries: vec![],
+            ignores: vec![],
         };
 
         let roots = build_trees(zones, &query);
@@ -330,24 +351,52 @@ mod test {
         head.push(Node::new(Zone::new("before-bar-2".to_string(), 15, 18)));
         head.push(Node::new(Zone::new("bar".to_string(), 40, 50)));
         head.push(Node::new(Zone::new("buzz".to_string(), 41, 48)));
+        head.push(Node::new(Zone::new("drop-pre".to_string(), 41, 42)));
+        head.push(Node::new(Zone::new("drop-post".to_string(), 46, 47)));
         head.push(Node::new(Zone::new("bluh".to_string(), 43, 44)));
         head.push(Node::new(Zone::new("after-bar".to_string(), 70, 75)));
         head.push(Node::new(Zone::new("after-bar-2".to_string(), 77, 78)));
 
         // self times
         assert_eq!(head.calc_self_time(), 63);
-        assert_eq!(head.calc_child_self_time("buzz").unwrap(), 6);
+        assert_eq!(head.calc_child_self_time("buzz").unwrap(), 4);
         assert_eq!(head.calc_child_self_time("bluh").unwrap(), 1);
         assert_eq!(head.calc_child_self_time("blazz"), None);
 
         // distances
         let b_sum = 38 - 20 + 18 - 15;
-        assert_eq!(head.time_to("buzz", &TimeCalculation::Start).unwrap(), 41 - 0 - b_sum);
-        assert_eq!(head.time_to("bluh", &TimeCalculation::Start).unwrap(), 43 - 0 - b_sum);
+        assert_eq!(
+            head.time_to("buzz", &vec![], &TimeCalculation::Start)
+                .unwrap(),
+            41 - 0 - b_sum
+        );
+        assert_eq!(
+            head.time_to("bluh", &vec![], &TimeCalculation::Start)
+                .unwrap(),
+            43 - 0 - b_sum
+        );
+        assert_eq!(
+            head.time_to("bluh", &vec!["drop-pre".to_string()], &TimeCalculation::Start)
+                .unwrap(),
+            43 - 0 - b_sum - 1
+        );
 
         let d_sum = 75 - 70 + 78 - 77;
-        assert_eq!(head.time_to("buzz", &TimeCalculation::End).unwrap(), 100 - 48 - d_sum);
-        assert_eq!(head.time_to("bluh", &TimeCalculation::End).unwrap(), 100 - 44 - d_sum);
+        assert_eq!(
+            head.time_to("buzz", &vec![], &TimeCalculation::End)
+                .unwrap(),
+            100 - 48 - d_sum
+        );
+        assert_eq!(
+            head.time_to("bluh", &vec![], &TimeCalculation::End)
+                .unwrap(),
+            100 - 44 - d_sum
+        );
+        assert_eq!(
+            head.time_to("bluh", &vec!["drop-post".to_string()], &TimeCalculation::End)
+                .unwrap(),
+            100 - 44 - d_sum - 1
+        );
 
         return Ok(());
     }
