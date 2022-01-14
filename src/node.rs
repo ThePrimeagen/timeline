@@ -1,14 +1,32 @@
+use std::{collections::HashSet, hash::Hash};
+
+use log::debug;
+
 use crate::{query::QueryConfig, zone::Zone};
 
 // cuts off time display to this length (% TIME_CUT_OFF)
 const TIME_CUT_OFF: u64 = 10_000_000;
 
 /// Node is for building the timeline querying only.
-#[derive(Debug)]
+#[derive(Debug, Eq)]
 pub struct Node {
     pub len: usize,
     pub zone: Zone,
     pub children: Vec<Node>,
+}
+
+impl Hash for Node {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.len.hash(state);
+        self.zone.hash(state);
+        self.children.hash(state);
+    }
+}
+
+impl PartialEq for Node {
+    fn eq(&self, other: &Self) -> bool {
+        return self.zone == other.zone;
+    }
 }
 
 pub enum TimeCalculation {
@@ -80,13 +98,15 @@ impl Node {
     }
 
     pub fn nodes_by_name(&self, name: &str) -> Vec<&Node> {
+        debug!("Node#nodes_by_name({}): {}", self.zone.name, name);
         if self.zone.name == name {
             return vec![self];
         }
+
         return self
             .children
             .iter()
-            .flat_map(|n| n.child_by_name(name))
+            .flat_map(|n| n.nodes_by_name(name))
             .collect::<Vec<&Node>>();
     }
 
@@ -108,7 +128,7 @@ impl Node {
             _ => return None,
         };
 
-        let ignore_duration = ignores
+        let mut ignore_duration = ignores
             .iter()
             .flat_map(|i| self.nodes_by_name(i))
             .filter(|n| {
@@ -118,31 +138,46 @@ impl Node {
                     child.zone.completes_by(&n.zone)
                 };
             })
-            .map(|n| n.zone.duration)
-            .sum::<u64>();
+            .collect::<HashSet<&Node>>();
 
+        let distance: u64;
         if let TimeCalculation::Start = side {
             // B from the above diagram
-            let b_sum = self
-                .children
+            self.children
                 .iter()
                 .filter(|c| c.zone.completes_by(&child.zone))
-                .fold(0, |sum, child| {
-                    return sum + child.zone.duration;
+                .for_each(|c| {
+                    if !ignore_duration.contains(c) {
+                        ignore_duration.insert(c);
+                    }
                 });
 
-            return Some(self.zone.get_start_distance(&child.zone) - b_sum - ignore_duration);
+            distance = self.zone.get_start_distance(&child.zone);
+        } else {
+            // D from the above diagram
+            self.children
+                .iter()
+                .filter(|c| child.zone.completes_by(&c.zone))
+                .for_each(|c| {
+                    if !ignore_duration.contains(c) {
+                        ignore_duration.insert(c);
+                    }
+                });
+            distance = self.zone.get_end_distance(&child.zone);
         }
 
-        // D from the above diagram
-        let d_sum = self
-            .children
+        let ignore_duration = ignore_duration
             .iter()
-            .filter(|c| child.zone.completes_by(&c.zone))
-            .fold(0, |sum, child| {
-                return sum + child.zone.duration;
-            });
-        return Some(self.zone.get_end_distance(&child.zone) - d_sum - ignore_duration);
+            .fold(0, |acc, n| acc + n.calc_self_time());
+        debug!(
+            "Node#time_to({} - {}): {} - {} = {}",
+            self.zone.name,
+            child.zone.name,
+            distance,
+            ignore_duration,
+            distance - ignore_duration
+        );
+        return Some(distance - ignore_duration);
     }
 
     pub fn calc_child_self_time(&self, name: &str) -> Option<u64> {
@@ -160,13 +195,25 @@ impl Node {
 
         return dur;
     }
+
+    pub fn calc_total_time(&self, ignores: &[String]) -> u64 {
+        let dur = self.zone.duration;
+        let ignore_duration = ignores
+            .iter()
+            .flat_map(|i| self.nodes_by_name(i))
+            .map(|n| n.zone.duration)
+            .sum::<u64>();
+
+        return dur - ignore_duration;
+    }
 }
 
 impl ToString for Node {
     fn to_string(&self) -> String {
         return format!(
-            "{} ({} - {})({})",
+            "{}({}) ({} - {})({})",
             self.zone.name,
+            self.children.len(),
             self.zone.time_start % TIME_CUT_OFF,
             self.zone.time_end % TIME_CUT_OFF,
             self.zone.duration
@@ -193,6 +240,11 @@ pub fn build_trees(zones: Vec<Zone>, query: &QueryConfig) -> Vec<Node> {
     let mut next_roots: Vec<Node> = vec![];
 
     loop {
+        debug!(
+            "build_trees node({}) root({})",
+            node.to_string(),
+            root.to_string()
+        );
         if root.zone.contains(&node.zone) {
             root.push(node);
             if let Some(n) = nodes.next() {
@@ -362,6 +414,12 @@ mod test {
         assert_eq!(head.calc_child_self_time("buzz").unwrap(), 4);
         assert_eq!(head.calc_child_self_time("bluh").unwrap(), 1);
         assert_eq!(head.calc_child_self_time("blazz"), None);
+        assert_eq!(head.calc_total_time(&vec![]), 100);
+        assert_eq!(head.calc_total_time(&vec!["drop-pre".to_string()]), 100 - 1);
+        assert_eq!(
+            head.calc_total_time(&vec!["drop-pre".to_string(), "drop-post".to_string()]),
+            100 - 1 - 1
+        );
 
         // distances
         let b_sum = 38 - 20 + 18 - 15;
@@ -376,8 +434,12 @@ mod test {
             43 - 0 - b_sum
         );
         assert_eq!(
-            head.time_to("bluh", &vec!["drop-pre".to_string()], &TimeCalculation::Start)
-                .unwrap(),
+            head.time_to(
+                "bluh",
+                &vec!["drop-pre".to_string()],
+                &TimeCalculation::Start
+            )
+            .unwrap(),
             43 - 0 - b_sum - 1
         );
 
@@ -393,8 +455,12 @@ mod test {
             100 - 44 - d_sum
         );
         assert_eq!(
-            head.time_to("bluh", &vec!["drop-post".to_string()], &TimeCalculation::End)
-                .unwrap(),
+            head.time_to(
+                "bluh",
+                &vec!["drop-post".to_string()],
+                &TimeCalculation::End
+            )
+            .unwrap(),
             100 - 44 - d_sum - 1
         );
 

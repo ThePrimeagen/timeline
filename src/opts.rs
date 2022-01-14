@@ -11,6 +11,10 @@ pub struct TelemetryTimelineOpts {
     #[structopt(short = "m", long = "main-track", default_value = "Main Thread")]
     pub main_track: String,
 
+    /// The track you wish to search on.
+    #[structopt(short = "m", long = "context-track", default_value = "Instrumentation")]
+    pub context_track: String,
+
     /// Zones file.  These should contain only TM_ZONES lines from tms_to_csv output
     /// A simple cat my_tele_.csv | grep "TM_ZONE" > my_tele.zones.csv should do it
     #[structopt(short = "z", long = "zone-file")]

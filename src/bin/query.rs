@@ -1,58 +1,43 @@
-use calculate_differences::{node::{build_trees}, error::TimelineError, opts::TelemetryTimelineOpts, tm_csv::{parse_tracks}, query::{parse_query, run_query}, zone::parse_zones};
+use calculate_differences::{
+    error::TimelineError,
+    node::build_trees,
+    opts::TelemetryTimelineOpts,
+    query::{parse_query, run_query},
+    tm_csv::parse_tracks,
+    zone::parse_zones,
+};
+use log::debug;
 use structopt::StructOpt;
 
-/*
-fn create_time_to_out_zones(
-    leaders: &Vec<Node>,
-    measurement_type: String,
-    from: String,
-    to: String,
-) -> Vec<OutZone> {
-    return leaders
-        .iter()
-        .map(|leader| {
-            return OutZone {
-                measurement_type: measurement_type.clone(),
-                name: format!("{} - {}", from, to),
-                duration: leader.child_by_name(&from).time_to(&to),
-            };
-        })
-        .collect();
-}
-
-fn create_self_time_out_zones(
-    leaders: &Vec<Node>,
-    measurement_type: String,
-    name: String,
-) -> Vec<OutZone> {
-    return leaders
-        .iter()
-        .map(|leader| {
-            return OutZone {
-                measurement_type: measurement_type.clone(),
-                name: name.clone(),
-                duration: leader.calc_time(&name),
-            };
-        })
-        .collect();
-}
-*/
-
 fn main() -> Result<(), TimelineError> {
+    env_logger::init();
     match dotenv::dotenv() {
         _ => {}
     }
 
     let opts = TelemetryTimelineOpts::from_args();
     let query_config = parse_query(&opts)?;
-    let main_track = parse_tracks(&opts)?.expect("You should always have a main track");
-    let zones = parse_zones(&main_track, &query_config, &opts)?;
-    let nodes = build_trees(zones, &query_config);
+    let tracks = parse_tracks(&opts)?;
+    if tracks.main_track.is_none() {
+        return Err(TimelineError::MainTrack(format!(
+            "Did not find the main track that you provided: {}",
+            opts.main_track
+        )));
+    }
 
-    query_config.queries
+    let zones = parse_zones(&tracks, &query_config, &opts)?;
+    let nodes = build_trees(zones.0, &query_config);
+    let contexts = zones.1;
+
+    nodes.iter().for_each(|n| {
+        debug!("{}", n.to_string());
+    });
+
+    query_config
+        .queries
         .iter()
         .flat_map(|q| {
-            return run_query(&nodes, &q, &query_config);
+            return run_query(&nodes, &q, &query_config, &contexts);
         })
         .for_each(|result| {
             println!("{}", result.to_string());
@@ -60,4 +45,3 @@ fn main() -> Result<(), TimelineError> {
 
     return Ok(());
 }
-

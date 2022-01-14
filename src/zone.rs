@@ -1,8 +1,9 @@
-use std::{num::ParseIntError, fs::File};
+use std::{num::ParseIntError, fs::File, hash::Hash};
 
 use csv::StringRecord;
+use log::debug;
 
-use crate::{opts::TelemetryTimelineOpts, tm_csv::Track, error::TimelineError, query::QueryConfig};
+use crate::{opts::TelemetryTimelineOpts, tm_csv::{Track, Tracks}, error::TimelineError, query::QueryConfig};
 
 #[derive(Eq, Debug)]
 pub struct Zone {
@@ -10,6 +11,14 @@ pub struct Zone {
     pub time_start: u64,
     pub time_end: u64,
     pub duration: u64,
+}
+
+impl Hash for Zone {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.name.hash(state);
+        self.time_start.hash(state);
+        self.time_end.hash(state);
+    }
 }
 
 impl TryFrom<StringRecord> for Zone {
@@ -43,6 +52,7 @@ impl Ord for Zone {
 
 impl Zone {
     pub fn new(name: String, time_start: u64, time_end: u64) -> Zone {
+        debug!("Zone::new {} {} {} {}", name, time_start, time_end, time_end - time_start);
         return Zone {
             name,
             time_start,
@@ -71,22 +81,29 @@ impl Zone {
     }
 }
 
-pub fn parse_zones(main_track: &Track, query: &QueryConfig, opts: &TelemetryTimelineOpts) -> Result<Vec<Zone>, TimelineError> {
+pub fn parse_zones(tracks: &Tracks, query: &QueryConfig, opts: &TelemetryTimelineOpts) -> Result<(Vec<Zone>, Vec<Zone>), TimelineError> {
     let mut data_reader = csv::Reader::from_reader(File::open(&opts.zone_file)?);
-    let mut zones: Vec<Zone> = vec![];
+    let mut main_track = vec![];
+    let mut context = vec![];
 
     for result in data_reader.records().flat_map(|r| r) {
         let id: u64 = result[1].parse()?;
-        if id == main_track.id {
+        if let Some(_) = &tracks.context {
             let zone: Zone = result.try_into()?;
+            debug!("parse_zones for context track: {} {}", zone.name, query.zones.contains(&zone.name));
+            context.push(zone);
+        } else if id == tracks.main_track.as_ref().expect("main track to exist").id {
+            let zone: Zone = result.try_into()?;
+            debug!("parse_zones for main_track: {} {}", zone.name, query.zones.contains(&zone.name));
             if query.zones.contains(&zone.name) {
-                zones.push(zone);
+                main_track.push(zone);
             }
         }
     }
 
-    zones.sort();
-    return Ok(zones);
+    main_track.sort();
+    context.sort();
+    return Ok((main_track, context));
 }
 
 #[cfg(test)]

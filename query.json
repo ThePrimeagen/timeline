@@ -30,12 +30,21 @@
         "INST_DataBufferBridge_CLASSgetUint16BE",
         "DataBufferBridge.getUint16BE",
         "INST_DataBufferBridge_CLASSslice",
+        "INST_DataBufferBridge_CLASSgetUint8",
+        "DataBufferBridge.getUint8",
         "DataBufferBridge.slice"
     ],
     "queries": [{
         "type": "Distance",
-        "from": "INST_DataBufferBridge_CLASSclear",
-        "to": "DataBufferBridge.clear",
+        "from": "V8.Builtin_HandleApiCall",
+        "to": "DataBufferBridge.getUint8",
+        "start": true,
+        "end": false,
+        "context": ["ClientStream#processFrames"],
+    }, {
+        "type": "Distance",
+        "from": "V8.Builtin_HandleApiCall",
+        "to": "DataBufferBridge.set",
         "start": true,
         "end": false
     }, {
@@ -44,6 +53,9 @@
         "to": "DataBufferBridge.set",
         "start": true,
         "end": false
+    }, {
+        "type": "SelfTime",
+        "node": "DataBufferBridge.set"
     }, {
         "type": "Count",
         "root": "V8.Execute",
@@ -79,7 +91,11 @@
     }, {
         "type": "Count",
         "root": "V8.Execute",
-        "child_name": "INST_DataBufferBridge_CLASSsetUint8"
+        "child_name": "INST_DataBufferBridge_CLASSslice"
+    }, {
+        "type": "Count",
+        "root": "V8.Execute",
+        "child_name": "INST_DataBufferBridge_CLASSgetUint8"
     }]
 }
 

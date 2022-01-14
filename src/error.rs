@@ -6,6 +6,7 @@ pub enum TimelineError {
     CsvRead(csv::Error),
     Io(std::io::Error),
     Json(serde_json::Error),
+    MainTrack(String),
 }
 
 impl From<ParseIntError> for TimelineError {
