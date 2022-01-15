@@ -30,25 +30,16 @@
         "INST_DataBufferBridge_CLASSgetUint16BE",
         "DataBufferBridge.getUint16BE",
         "INST_DataBufferBridge_CLASSslice",
-        "INST_DataBufferBridge_CLASSgetUint8",
         "DataBufferBridge.getUint8",
-        "DataBufferBridge.slice",
-        "INST_MediaSourceBridge_CLASSaddSamples",
-        "MediaSourceBridge.addSamples",
-        "NrdSocketBridge.recvfrom"
+        "INST_DataBufferBridge_CLASSgetUint8",
+        "DataBufferBridge.slice"
     ],
     "queries": [{
         "type": "Distance",
         "from": "V8.Builtin_HandleApiCall",
-        "to": "NrdSocketBridge.recvfrom",
+        "to": "DataBufferBridge.getUint8",
         "start": true,
-        "end": false,
-        "context": ["setFD"]
-    }, {
-        "type": "Count",
-        "root": "V8.Execute",
-        "child_name": "MediaSourceBridge.addSamples",
-        "context": ["ClientStream#processFrames"]
+        "end": false
     }]
 }
 

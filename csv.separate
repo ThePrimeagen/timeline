@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+
+cat $1 | grep "TM_ZONE" > $1.zones.csv
+cat $1 | grep "TM_TRACK" > $1.tracks.csv

@@ -1,0 +1,8 @@
+# Ignore everything
+**
+
+# Allow files and directories
+!/out2.csv
+!/requirements.txt
+!/analysis.py
+

@@ -1,0 +1,20 @@
+{
+    "root": "setFD",
+    "ignores": [
+        "V8TracingController.AddTraceEvent",
+        "V8TracingController.UpdateTraceEventDuration"
+    ],
+    "zones": [
+        "setFD",
+        "ClientStream#processFrames",
+        "onRTPPacketReceived"
+    ],
+    "queries": [{
+        "type": "Count",
+        "root": "setFD",
+        "child_name": "onRTPPacketReceived"
+    }]
+}
+
+
+

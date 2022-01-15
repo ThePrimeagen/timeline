@@ -28,6 +28,8 @@ pub struct TotalTime {
 
 #[derive(Debug, Deserialize)]
 pub struct SelfTime {
+    // TODO: parent?  We need another axis of filter
+    // parent: Option<String>,
     node: String,
     context: Option<Vec<String>>,
 }
@@ -126,11 +128,14 @@ fn calculate_distance(
         .iter()
         // TODO: Determine if this can ever actually be an option?
         .filter(|node| {
-            filter_nodes(
-                node.child_by_name(&distance.to)
-                    .expect("this child should always exist"),
-                contexts,
-            )
+            if let Some(node) = node.child_by_name(&distance.to) {
+                return filter_nodes(
+                    node,
+                    contexts,
+                );
+            }
+
+            return false;
         })
         .flat_map(|c| c.time_to(&distance.to, ignores, &side))
         .map(|d| {
