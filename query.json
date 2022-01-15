@@ -35,67 +35,10 @@
         "DataBufferBridge.slice"
     ],
     "queries": [{
-        "type": "Distance",
-        "from": "V8.Builtin_HandleApiCall",
-        "to": "DataBufferBridge.getUint8",
-        "start": true,
-        "end": false,
-        "context": ["ClientStream#processFrames"],
-    }, {
-        "type": "Distance",
-        "from": "V8.Builtin_HandleApiCall",
-        "to": "DataBufferBridge.set",
-        "start": true,
-        "end": false
-    }, {
-        "type": "Distance",
-        "from": "INST_DataBufferBridge_CLASSset",
-        "to": "DataBufferBridge.set",
-        "start": true,
-        "end": false
-    }, {
-        "type": "SelfTime",
-        "node": "DataBufferBridge.set"
-    }, {
         "type": "Count",
         "root": "V8.Execute",
-        "child_name": "INST_DataBufferBridge_CLASSappend"
-    }, {
-        "type": "Count",
-        "root": "V8.Execute",
-        "child_name": "INST_DataBufferBridge_CLASSclear"
-    }, {
-        "type": "Count",
-        "root": "V8.Execute",
-        "child_name": "INST_DataBufferBridge_CLASSbufferLength"
-    }, {
-        "type": "Count",
-        "root": "V8.Execute",
-        "child_name": "INST_DataBufferBridge_CLASSbyteLength"
-    }, {
-        "type": "Count",
-        "root": "V8.Execute",
-        "child_name": "INST_DataBufferBridge_CLASSgetUint32BE"
-    }, {
-        "type": "Count",
-        "root": "V8.Execute",
-        "child_name": "INST_DataBufferBridge_CLASSappend"
-    }, {
-        "type": "Count",
-        "root": "V8.Execute",
-        "child_name": "INST_DataBufferBridge_CLASSgetUint16BE"
-    }, {
-        "type": "Count",
-        "root": "V8.Execute",
-        "child_name": "INST_DataBufferBridge_CLASSslice"
-    }, {
-        "type": "Count",
-        "root": "V8.Execute",
-        "child_name": "INST_DataBufferBridge_CLASSslice"
-    }, {
-        "type": "Count",
-        "root": "V8.Execute",
-        "child_name": "INST_DataBufferBridge_CLASSgetUint8"
+        "child_name": "V8TracingController.UpdateTraceEventDuration",
+        "context": ["onRTPPacketReceived359"]
     }]
 }
 

@@ -88,11 +88,16 @@ pub fn parse_zones(tracks: &Tracks, query: &QueryConfig, opts: &TelemetryTimelin
 
     for result in data_reader.records().flat_map(|r| r) {
         let id: u64 = result[1].parse()?;
-        if let Some(_) = &tracks.context {
-            let zone: Zone = result.try_into()?;
-            debug!("parse_zones for context track: {} {}", zone.name, query.zones.contains(&zone.name));
-            context.push(zone);
-        } else if id == tracks.main_track.as_ref().expect("main track to exist").id {
+
+        if let Some(c) = &tracks.context {
+            if id == c.id {
+                let zone: Zone = result.try_into()?;
+                context.push(zone);
+                continue;
+            }
+        }
+
+        if id == tracks.main_track.as_ref().expect("main track to exist").id {
             let zone: Zone = result.try_into()?;
             debug!("parse_zones for main_track: {} {}", zone.name, query.zones.contains(&zone.name));
             if query.zones.contains(&zone.name) {

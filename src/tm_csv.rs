@@ -1,6 +1,7 @@
 use std::{fs::File, num::ParseIntError};
 
 use csv::StringRecord;
+use log::debug;
 use serde::Deserialize;
 
 use crate::{error::TimelineError, opts::TelemetryTimelineOpts};
@@ -12,6 +13,7 @@ pub struct Track {
     pub time_start: u64,
 }
 
+#[derive(Debug)]
 pub struct Tracks {
     pub main_track: Option<Track>,
     pub context: Option<Track>,
@@ -39,10 +41,12 @@ pub fn parse_tracks(opts: &TelemetryTimelineOpts) -> Result<Tracks, TimelineErro
     let mut track_reader = csv::Reader::from_reader(File::open(&opts.track_file)?);
     let mut tracks: Vec<Track> = vec![];
     for result in track_reader.records() {
+        debug!("reading track: {:?}", result);
         tracks.push(result?.try_into()?);
     }
 
     let main_track: Tracks = tracks.into_iter().fold(Tracks::empty(), |mut tracks, track| {
+        debug!("checking track: {} {}", track.name, opts.context_track);
         if track.name == opts.main_track {
             tracks.main_track = Some(track);
         } else if track.name == opts.context_track {

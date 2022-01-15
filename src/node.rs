@@ -228,10 +228,16 @@ impl From<Zone> for Node {
 }
 
 pub fn build_trees(zones: Vec<Zone>, query: &QueryConfig) -> Vec<Node> {
+    debug!("zone count: {}", zones.len());
     let (roots, nodes): (Vec<Node>, Vec<Node>) = zones
         .into_iter()
         .map(Node::from)
         .partition(|node| node.zone.name == query.root);
+
+    debug!("roots: {} nodes: {}", roots.len(), nodes.len());
+    if roots.len() == 0 {
+        panic!("We found no roots with {}", query.root);
+    }
 
     let mut nodes = nodes.into_iter();
     let mut roots = roots.into_iter();

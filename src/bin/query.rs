@@ -25,13 +25,11 @@ fn main() -> Result<(), TimelineError> {
         )));
     }
 
+    debug!("track: {:?}", tracks);
     let zones = parse_zones(&tracks, &query_config, &opts)?;
     let nodes = build_trees(zones.0, &query_config);
     let contexts = zones.1;
-
-    nodes.iter().for_each(|n| {
-        debug!("{}", n.to_string());
-    });
+    debug!("parsed contexts: {:?}", contexts);
 
     query_config
         .queries
