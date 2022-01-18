@@ -38,8 +38,8 @@ impl Zone {
         return self.start_time < zone.start_time;
     }
 
-    pub fn is_before(&self, zone: &Zone) -> bool {
-        return zone.start_time > self.start_time;
+    pub fn completes_before(&self, zone: &Zone) -> bool {
+        return zone.start_time > self.end_time;
     }
 
     pub fn contains(&self, zone: &Zone) -> bool {

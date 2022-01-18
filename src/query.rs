@@ -1,10 +1,10 @@
-use std::{fmt::Display, str::FromStr};
+use std::{fmt::Display, rc::Rc, str::FromStr};
 
 use serde::Deserialize;
 
 use crate::{
     error::TimelineError,
-    zone_search::{get_by_name, partial_intersect},
+    zone_search::{contained_ignores, get_by_name, partial_intersect},
     zones::Zone,
 };
 
@@ -21,16 +21,32 @@ pub enum Query {
 }
 
 #[derive(Debug, Deserialize)]
-pub struct QueryConfig {
+pub struct QueryConfigParsed {
     pub ignores: Vec<String>,
     pub queries: Vec<Query>,
+}
+
+#[derive(Debug)]
+pub struct QueryConfig {
+    pub ignores: Rc<Vec<String>>,
+    pub queries: Vec<Query>,
+}
+
+impl Into<QueryConfig> for QueryConfigParsed {
+    fn into(self) -> QueryConfig {
+        return QueryConfig {
+            ignores: Rc::new(self.ignores),
+            queries: self.queries,
+        };
+    }
 }
 
 impl FromStr for QueryConfig {
     type Err = std::io::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        return Ok(serde_json::from_str::<QueryConfig>(s)?);
+        let parsed: QueryConfigParsed = serde_json::from_str::<QueryConfigParsed>(s)?;
+        return Ok(parsed.into());
     }
 }
 
@@ -47,7 +63,10 @@ impl Display for QueryResult {
         return write!(
             f,
             "{},{},{},{}",
-            self.query, self.name, self.count, self.additional_data.as_ref().unwrap_or(&"".to_string())
+            self.query,
+            self.name,
+            self.count,
+            self.additional_data.as_ref().unwrap_or(&"".to_string())
         );
     }
 }
@@ -73,14 +92,21 @@ fn self_time_query(query: &SelfTime, config: &QueryConfig, zones: &Vec<Zone>) ->
             return zones.get(*z_idx);
         })
         .map(|z| {
+            let partial_intersect_duration_ignores =
+                sum_partial_intersection(zones, &z, &query.partial_ignore);
+
+            let ignore_durations: u64 = contained_ignores(zones, z.idx, config.ignores.clone())
+                .iter()
+                .map(|&x| x as u64)
+                .sum();
+
             return QueryResult {
                 query: "SelfTime".to_string(),
                 name: z.name.clone(),
-                count: z.duration.saturating_sub(sum_partial_intersection(
-                    zones,
-                    &z,
-                    &query.partial_ignore,
-                )),
+                count: z
+                    .duration
+                    .saturating_sub(partial_intersect_duration_ignores)
+                    .saturating_sub(ignore_durations),
                 additional_data: None,
             };
         })
@@ -125,7 +151,43 @@ mod test {
         };
 
         let config = QueryConfig {
-            ignores: vec![],
+            ignores: Rc::new(vec![]),
+            queries: vec![],
+        };
+
+        let res = self_time_query(&self_time, &config, &zones);
+
+        assert_eq!(res.len(), 1);
+        assert_eq!(
+            *res.get(0).unwrap(),
+            QueryResult {
+                query: "SelfTime".to_string(),
+                name: "foo2".to_string(),
+                count: 28,
+                additional_data: None,
+            }
+        )
+    }
+
+    #[test]
+    fn test_self_time_query_with_ignores() {
+        let mut zones = vec![
+            Zone::new("foo".to_string(), 8, 20),
+            Zone::new("foo2".to_string(), 10, 50),
+            Zone::new("ignore-me".to_string(), 10, 50),
+            Zone::new("foo".to_string(), 30, 40),
+            Zone::new("foo".to_string(), 48, 55),
+        ];
+
+        set_zone_idx(&mut zones);
+
+        let self_time = SelfTime {
+            partial_ignore: Some(vec!["foo".to_string()]),
+            node: "foo2".to_string(),
+        };
+
+        let config = QueryConfig {
+            ignores: Rc::new(vec![]),
             queries: vec![],
         };
 

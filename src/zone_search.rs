@@ -1,3 +1,5 @@
+use std::rc::Rc;
+
 use crate::zones::Zone;
 
 pub struct ZoneIdx(usize);
@@ -42,7 +44,7 @@ fn partial_intersect_filter(zone: &Zone, z: &Zone) -> FilterResult {
     return FilterResult::Break;
 }
 
-fn intersect_by_filter(zones: &Vec<Zone>, idx: usize, filter: fn(&Zone, &Zone) -> FilterResult) -> Vec<usize> {
+fn intersect_by_filter(zones: &Vec<Zone>, idx: usize, filter: Box<dyn Fn(&Zone, &Zone) -> FilterResult>) -> Vec<usize> {
     let mut out = vec![];
     let zone = zones.get(idx).expect("should never hand a zone that doesn't exist");
     let mut curr_idx = idx;
@@ -93,8 +95,26 @@ fn intersect_by_filter(zones: &Vec<Zone>, idx: usize, filter: fn(&Zone, &Zone) -
     return out;
 }
 
+pub fn contained_ignores(zones: &Vec<Zone>, idx: usize, ignores: Rc<Vec<String>>) -> Vec<usize> {
+
+    return intersect_by_filter(zones, idx, Box::new(move |starting_zone, zone| {
+        if starting_zone.completes_before(zone) ||
+           zone.completes_before(starting_zone) {
+           return FilterResult::Break;
+        }
+
+        if starting_zone.contains(zone) {
+            if ignores.contains(&zone.name) {
+                return FilterResult::Add;
+            }
+        }
+
+        return FilterResult::Continue;
+    }));
+}
+
 pub fn partial_intersect(zones: &Vec<Zone>, idx: usize) -> Vec<usize> {
-    return intersect_by_filter(zones, idx, partial_intersect_filter);
+    return intersect_by_filter(zones, idx, Box::new(partial_intersect_filter));
 }
 
 #[cfg(test)]
