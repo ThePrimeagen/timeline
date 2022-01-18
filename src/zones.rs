@@ -8,6 +8,7 @@ pub struct Zone {
     start_time: u64,
     end_time: u64,
     duration: u64,
+    idx: usize,
 }
 
 impl Ord for Zone {
@@ -29,6 +30,7 @@ impl Zone {
             start_time,
             end_time,
             duration: start_time.abs_diff(end_time),
+            idx: 0,
         };
     }
 
@@ -81,6 +83,12 @@ impl Display for Zone {
             self.duration, self.name, self.start_time, self.end_time
         );
     }
+}
+
+pub fn set_zone_idx(vec: &mut Vec<Zone>) {
+    vec.iter_mut().enumerate().for_each(|(idx, z)| {
+        z.idx = idx;
+    });
 }
 
 #[cfg(test)]
