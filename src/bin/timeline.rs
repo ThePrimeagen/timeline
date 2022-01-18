@@ -9,19 +9,12 @@ fn main() -> Result<(), TimelineError> {
     let tracks = parse_tracks(&opts)?;
     let query_config: QueryConfig = opts.query_file.parse()?;
     let mut zones = parse_zones(&opts)?;
-    // let mut map: HashMap<String, Vec<ZoneIdx>> = HashMap::new();
 
     zones.sort();
     set_zone_idx(&mut zones);
 
-    /*
-    let ignores: Vec::<ZoneIdx> = query_config.ignores.iter().fold(Vec::new(), |mut vec, zone| {
-        let mut items = get_partial_intersection(&zones, zone);
-        vec.append(&mut items);
-
-        return vec;
-    });
-    */
+    for query in &query_config.queries {
+    }
 
     return Ok(());
 }

@@ -2,53 +2,13 @@
     "root": "V8.Execute",
     "ignores": [
         "V8TracingController.AddTraceEvent",
-        "V8TracingController.UpdateTraceEventDuration"
-    ],
-    "zones": [
-        "V8.Execute",
-        "toImpleArgs2",
-        "toImplArgs",
-        "toImplType",
-        "V8TracingController.AddTraceEvent",
         "V8TracingController.UpdateTraceEventDuration",
-        "V8.ExternalCallback",
-        "INST_NrdpBridge2_CLASSmono",
-        "NrdpBridge2.mono",
-        "V8.Builtin_HandleApiCall",
-        "INST_DataBufferBridge_CLASSset",
-        "DataBufferBridge.set",
-        "INST_DataBufferBridge_CLASSappend",
-        "DataBufferBridge.append",
-        "INST_DataBufferBridge_CLASSclear",
-        "DataBufferBridge.clear",
-        "INST_DataBufferBridge_CLASSbufferLength",
-        "INST_DataBufferBridge_CLASSbyteLength",
-        "INST_DataBufferBridge_CLASSsetUint8",
-        "DataBufferBridge.setUint8",
-        "INST_DataBufferBridge_CLASSgetUint32BE",
-        "DataBufferBridge.getUint32BE",
-        "INST_DataBufferBridge_CLASSgetUint16BE",
-        "DataBufferBridge.getUint16BE",
-        "INST_DataBufferBridge_CLASSslice",
-        "INST_DataBufferBridge_CLASSgetUint8",
-        "DataBufferBridge.getUint8",
-        "DataBufferBridge.slice",
-        "INST_MediaSourceBridge_CLASSaddSamples",
-        "MediaSourceBridge.addSamples",
-        "NrdSocketBridge.recvfrom"
+        "Telemetry Get New Buffer"
     ],
+
     "queries": [{
-        "type": "Distance",
-        "from": "V8.Builtin_HandleApiCall",
-        "to": "NrdSocketBridge.recvfrom",
-        "start": true,
-        "end": false,
-        "context": ["setFD"]
-    }, {
-        "type": "Count",
-        "root": "V8.Execute",
-        "child_name": "MediaSourceBridge.addSamples",
-        "context": ["ClientStream#processFrames"]
+        "type": "SelfTime",
+        "partial_ignore": ["V8.Builtin_HandleApiCall"]
     }]
 }
 
