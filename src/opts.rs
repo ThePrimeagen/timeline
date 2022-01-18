@@ -1,7 +1,7 @@
 use structopt::StructOpt;
 
 #[derive(Debug, StructOpt, Clone)]
-pub struct TelemetryTimelineOpts {
+pub struct TimelineOpts {
     /// Tracks file.  These should contain only TM_TRACKS lines from tms_to_csv output
     /// A simple cat my_tele_.csv | grep "TM_TRACS" > my_tele.tracks.csv should do it
     #[structopt(short = "t", long = "track-file")]
