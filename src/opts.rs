@@ -53,5 +53,6 @@ pub struct TimelineOpts {
     ///
     /// This assumes that A subsumes B.
     #[structopt(short = "q", long = "query-file")]
-    pub query_file: String
+    pub query_file: String,
 }
+

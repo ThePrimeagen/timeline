@@ -4,11 +4,11 @@ use csv::StringRecord;
 
 #[derive(Debug, PartialEq, Eq)]
 pub struct Zone {
-    name: String,
-    start_time: u64,
-    end_time: u64,
-    duration: u64,
-    idx: usize,
+    pub name: String,
+    pub start_time: u64,
+    pub end_time: u64,
+    pub duration: u64,
+    pub idx: usize,
 }
 
 impl Ord for Zone {
@@ -83,12 +83,6 @@ impl Display for Zone {
             self.duration, self.name, self.start_time, self.end_time
         );
     }
-}
-
-pub fn set_zone_idx(vec: &mut Vec<Zone>) {
-    vec.iter_mut().enumerate().for_each(|(idx, z)| {
-        z.idx = idx;
-    });
 }
 
 #[cfg(test)]
