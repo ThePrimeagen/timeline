@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use calculate_differences::{error::TimelineError, opts::TimelineOpts, parse::{parse_tracks, parse_zones}, zone_search::{ZoneIdx, set_zone_idx}, query::QueryConfig};
+use calculate_differences::{error::TimelineError, opts::TimelineOpts, parse::{parse_tracks, parse_zones}, zone_search::{ZoneIdx, set_zone_idx}, query::{QueryConfig, run_query}};
 use structopt::StructOpt;
 
 
@@ -14,6 +14,7 @@ fn main() -> Result<(), TimelineError> {
     set_zone_idx(&mut zones);
 
     for query in &query_config.queries {
+        run_query(query, &query_config, &zones)?;
     }
 
     return Ok(());

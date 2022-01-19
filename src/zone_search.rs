@@ -36,7 +36,7 @@ pub enum FilterResult {
 fn partial_intersect_filter(zone: &Zone, z: &Zone) -> FilterResult {
     if zone.partial_contains(z) {
         return FilterResult::Add;
-    } else if zone.contains(z) {
+    } else if zone.contains(z) || z.contains(zone) {
         return FilterResult::Continue;
     }
     return FilterResult::Break;
@@ -241,6 +241,18 @@ mod test {
         assert_eq!(partial_intersect(&zones, 5), vec![4, 3]);
 
         assert_eq!(partial_intersect(&zones, 0), vec![1]);
+    }
+
+    #[test]
+    fn test_partial_intersection_with_super_container() {
+        let mut zones = vec![
+            Zone::new("foo".to_string(), 8, 55),
+            Zone::new("foo".to_string(), 10, 50),
+        ];
+        set_zone_idx(&mut zones);
+
+        let expected: Vec<usize> = vec![];
+        assert_eq!(partial_intersect(&zones, 1), expected);
     }
 
     #[test]

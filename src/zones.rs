@@ -1,6 +1,9 @@
 use std::{fmt::Display, num::ParseIntError};
 
 use csv::StringRecord;
+use itertools::Itertools;
+
+use crate::error::TimelineError;
 
 #[derive(Debug, PartialEq, Eq)]
 pub struct Zone {
@@ -9,6 +12,7 @@ pub struct Zone {
     pub end_time: u64,
     pub duration: u64,
     pub idx: usize,
+    pub original_csv: String,
 }
 
 impl Ord for Zone {
@@ -24,6 +28,16 @@ impl PartialOrd for Zone {
 }
 
 impl Zone {
+    pub fn from_record(record: &StringRecord) -> Result<Self, TimelineError> {
+        let mut zone = Zone::new(
+            record[2].to_string(),
+            record[3].parse()?,
+            record[4].parse()?,
+        );
+        zone.original_csv = record.iter().join(",");
+        return Ok(zone);
+    }
+
     pub fn new(name: String, start_time: u64, end_time: u64) -> Zone {
         return Zone {
             name,
@@ -31,6 +45,7 @@ impl Zone {
             end_time,
             duration: start_time.abs_diff(end_time),
             idx: 0,
+            original_csv: "".to_string(),
         };
     }
 
@@ -47,8 +62,8 @@ impl Zone {
     }
 
     pub fn partial_contains(&self, zone: &Zone) -> bool {
-        return self.start_time > zone.start_time && self.start_time <= zone.end_time
-            || self.end_time < zone.end_time && self.end_time >= zone.start_time;
+        return self.start_time > zone.start_time && self.start_time <= zone.end_time && self.end_time >= zone.end_time
+            || self.end_time < zone.end_time && self.end_time >= zone.start_time && self.start_time <= zone.start_time;
     }
 
     pub fn get_duration_intersection(&self, zone: &Zone) -> u64 {
@@ -64,14 +79,10 @@ impl Zone {
 }
 
 impl TryInto<Zone> for StringRecord {
-    type Error = ParseIntError;
+    type Error = TimelineError;
 
     fn try_into(self) -> Result<Zone, Self::Error> {
-        return Ok(Zone::new(
-            self[2].to_string(),
-            self[3].parse()?,
-            self[4].parse()?,
-        ));
+        return Ok(Zone::from_record(&self)?);
     }
 }
 

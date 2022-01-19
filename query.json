@@ -5,9 +5,9 @@
         "V8TracingController.UpdateTraceEventDuration",
         "Telemetry Get New Buffer"
     ],
-
     "queries": [{
         "type": "SelfTime",
+        "node": "onMsg",
         "partial_ignore": ["V8.Builtin_HandleApiCall"]
     }]
 }

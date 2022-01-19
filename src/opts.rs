@@ -12,7 +12,7 @@ pub struct TimelineOpts {
     pub main_track: String,
 
     /// The track you wish to search on.
-    #[structopt(short = "m", long = "context-track", default_value = "Instrumentation")]
+    #[structopt(short = "c", long = "context-track", default_value = "Instrumentation")]
     pub context_track: String,
 
     /// Zones file.  These should contain only TM_ZONES lines from tms_to_csv output

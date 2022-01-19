@@ -1,12 +1,22 @@
-use std::{fmt::Display, rc::Rc, str::FromStr};
+use std::{fmt::Display, fs::File, io::BufReader, str::FromStr};
 
+use itertools::Itertools;
 use serde::Deserialize;
 
 use crate::{
     error::TimelineError,
-    zone_search::{get_by_name, partial_intersect, contains_intersect, filter_by_name_on_idx, filter_out_contains, sum_zone_indices},
+    zone_search::{
+        contains_intersect, filter_by_name, filter_by_name_on_idx, filter_out_contains,
+        get_by_name, partial_intersect, sum_zone_indices,
+    },
     zones::Zone,
 };
+
+#[derive(Debug, Deserialize)]
+pub struct Reduce {
+    pub node: String,
+    pub ignore_count: Option<usize>,
+}
 
 #[derive(Debug, Deserialize)]
 pub struct SelfTime {
@@ -18,71 +28,67 @@ pub struct SelfTime {
 #[serde(tag = "type")]
 pub enum Query {
     SelfTime(SelfTime),
+    Reduce(Reduce),
 }
 
 #[derive(Debug, Deserialize)]
-pub struct QueryConfigParsed {
+pub struct QueryConfig {
     pub ignores: Vec<String>,
     pub queries: Vec<Query>,
-}
-
-#[derive(Debug)]
-pub struct QueryConfig {
-    pub ignores: Rc<Vec<String>>,
-    pub queries: Vec<Query>,
-}
-
-impl Into<QueryConfig> for QueryConfigParsed {
-    fn into(self) -> QueryConfig {
-        return QueryConfig {
-            ignores: Rc::new(self.ignores),
-            queries: self.queries,
-        };
-    }
 }
 
 impl FromStr for QueryConfig {
     type Err = std::io::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let parsed: QueryConfigParsed = serde_json::from_str::<QueryConfigParsed>(s)?;
-        return Ok(parsed.into());
+        let file = File::open(s)?;
+        let reader = BufReader::new(file);
+        return Ok(serde_json::from_reader(reader)?);
     }
 }
 
 #[derive(Debug, Eq, PartialEq)]
-pub struct QueryResult {
+pub struct DataPoint {
     query: String,
     name: String,
     count: u64,
     additional_data: Option<String>,
 }
 
+#[derive(Debug, Eq, PartialEq)]
+pub enum QueryResult {
+    DataPoint(DataPoint),
+    OriginalCsvRow(String),
+}
+
 impl Display for QueryResult {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        return write!(
-            f,
-            "{},{},{},{}",
-            self.query,
-            self.name,
-            self.count,
-            self.additional_data.as_ref().unwrap_or(&"".to_string())
-        );
+        match self {
+            QueryResult::DataPoint(p) => {
+                return write!(
+                    f,
+                    "{},{},{},{}",
+                    p.query,
+                    p.name,
+                    p.count,
+                    p.additional_data.as_ref().unwrap_or(&"".to_string())
+                );
+            }
+            QueryResult::OriginalCsvRow(s) => {
+                return write!(f, "{}", s);
+            }
+        }
     }
 }
 
-fn sum_partial_intersection(zones: &Vec<Zone>, zone: &Zone, ignores: &Option<Vec<String>>) -> u64 {
-    return partial_intersect(zones, zone.idx)
-        .iter()
-        .flat_map(|z_idx| zones.get(*z_idx))
-        .filter(|&partial_z| {
-            if let Some(names) = &ignores {
-                return names.contains(&partial_z.name);
-            }
-            return true;
-        })
-        .map(|partial_z| zone.get_duration_intersection(partial_z))
-        .sum::<u64>();
+fn index_to_original_csv(zones: &Vec<Zone>, idx: usize) -> QueryResult {
+    return QueryResult::OriginalCsvRow(
+        zones
+            .get(idx)
+            .expect("all indices should be valid")
+            .original_csv
+            .to_string(),
+    );
 }
 
 fn self_time_query(query: &SelfTime, config: &QueryConfig, zones: &Vec<Zone>) -> Vec<QueryResult> {
@@ -92,7 +98,6 @@ fn self_time_query(query: &SelfTime, config: &QueryConfig, zones: &Vec<Zone>) ->
             return zones.get(*z_idx);
         })
         .map(|z| {
-
             let partials = filter_by_name_on_idx(
                 zones,
                 &partial_intersect(zones, z.idx),
@@ -100,34 +105,52 @@ fn self_time_query(query: &SelfTime, config: &QueryConfig, zones: &Vec<Zone>) ->
             );
 
             // TODO: Should I filter out contains with contains...?
-            let contains = filter_by_name_on_idx(
-                zones,
-                &contains_intersect(zones, z.idx),
-                &config.ignores
-            );
+            let contains =
+                filter_by_name_on_idx(zones, &contains_intersect(zones, z.idx), &config.ignores);
 
-            let contains = filter_out_contains(
-                zones,
-                &partials,
-                &contains,
-            );
+            let contains = filter_out_contains(zones, &partials, &contains);
 
             // TODO: filter out sub contains within contains
 
             let partials = sum_zone_indices(zones, &z, &partials);
             let contains = sum_zone_indices(zones, &z, &contains);
 
-            return QueryResult {
+            return QueryResult::DataPoint(DataPoint {
                 query: "SelfTime".to_string(),
                 name: z.name.clone(),
-                count: z
-                    .duration
-                    .saturating_sub(partials)
-                    .saturating_sub(contains),
+                count: z.duration.saturating_sub(partials).saturating_sub(contains),
                 additional_data: None,
-            };
+            });
         })
         .collect::<Vec<QueryResult>>();
+}
+
+pub fn reduce_query(query: &Reduce, zones: &Vec<Zone>) -> Vec<QueryResult> {
+    let found = *filter_by_name(zones, &vec![query.node.clone()])
+        .iter()
+        .nth(query.ignore_count.unwrap_or(0))
+        .expect("to always find a reduce result");
+
+    let found = zones.get(found).expect("all indices should be valid");
+
+    let partials = partial_intersect(zones, found.idx);
+    let contains = contains_intersect(zones, found.idx);
+
+    let mut out = partials
+        .iter()
+        .map(|p| index_to_original_csv(zones, *p))
+        .collect::<Vec<QueryResult>>();
+
+    out.append(
+        &mut contains
+            .iter()
+            .map(|p| index_to_original_csv(zones, *p))
+            .collect::<Vec<QueryResult>>(),
+    );
+
+    out.push(QueryResult::OriginalCsvRow(found.original_csv.to_string()));
+
+    return out;
 }
 
 pub fn run_query(
@@ -137,6 +160,7 @@ pub fn run_query(
 ) -> Result<(), TimelineError> {
     let results = match query {
         Query::SelfTime(s) => self_time_query(&s, config, zones),
+        Query::Reduce(r) => reduce_query(&r, zones),
     };
 
     for result in results {
@@ -148,8 +172,8 @@ pub fn run_query(
 
 #[cfg(test)]
 mod test {
-    use crate::zone_search::set_zone_idx;
     use super::*;
+    use crate::zone_search::set_zone_idx;
 
     #[test]
     fn test_self_time_query() {
@@ -168,7 +192,7 @@ mod test {
         };
 
         let config = QueryConfig {
-            ignores: Rc::new(vec![]),
+            ignores: vec![],
             queries: vec![],
         };
 
@@ -177,12 +201,12 @@ mod test {
         assert_eq!(res.len(), 1);
         assert_eq!(
             *res.get(0).unwrap(),
-            QueryResult {
+            QueryResult::DataPoint(DataPoint {
                 query: "SelfTime".to_string(),
                 name: "foo2".to_string(),
                 count: 28,
                 additional_data: None,
-            }
+            })
         )
     }
 
@@ -204,7 +228,7 @@ mod test {
         };
 
         let config = QueryConfig {
-            ignores: Rc::new(vec!["ignore-me".to_string()]),
+            ignores: vec!["ignore-me".to_string()],
             queries: vec![],
         };
 
@@ -213,12 +237,48 @@ mod test {
         assert_eq!(res.len(), 1);
         assert_eq!(
             *res.get(0).unwrap(),
-            QueryResult {
+            QueryResult::DataPoint(DataPoint {
                 query: "SelfTime".to_string(),
                 name: "foo2".to_string(),
                 count: 23,
                 additional_data: None,
-            }
+            })
         )
+    }
+
+    #[test]
+    fn test_reduce_query() {
+        let mut zones = vec![
+            Zone::new("excluded_outside_left".to_string(), 6, 20),
+            Zone::new("included_partial_left".to_string(), 8, 26),
+            Zone::new("excluded_container".to_string(), 10, 51),
+            Zone::new("root".to_string(), 25, 50),
+            Zone::new("contained".to_string(), 30, 40),
+            Zone::new("included_partial_right".to_string(), 48, 55),
+            Zone::new("excluded_outside_right".to_string(), 51, 60),
+        ].into_iter().map(|mut zone| {
+            zone.original_csv = format!("{}", zone.name);
+            return zone;
+        }).collect::<Vec<Zone>>();
+
+        set_zone_idx(&mut zones);
+
+        let reduce = Reduce{
+            node: "root".to_string(),
+            ignore_count: Some(0),
+        };
+
+        let res = reduce_query(&reduce, &zones).into_iter().map(|qr| {
+            return match qr {
+                QueryResult::OriginalCsvRow(s) => s,
+                _ => "YOU SUCK".to_string()
+            }
+        }).collect::<Vec<String>>();
+
+        assert_eq!(res.len(), 4);
+        assert_eq!(res.get(0).unwrap(), "included_partial_left"); // left
+        assert_eq!(res.get(1).unwrap(), "included_partial_right"); // right
+        assert_eq!(res.get(2).unwrap(), "contained"); // right
+        assert_eq!(res.get(3).unwrap(), "root"); // right
     }
 }
