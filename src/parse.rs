@@ -16,13 +16,18 @@ pub fn parse_tracks(opts: &TimelineOpts) -> Result<Vec<Track>, TimelineError> {
     return Ok(tracks);
 }
 
-pub fn parse_zones(opts: &TimelineOpts) -> Result<Vec<Zone>, TimelineError> {
+pub fn parse_zones(opts: &TimelineOpts, allowed_tracks: &[Track]) -> Result<Vec<Zone>, TimelineError> {
     info!("about to parse zones for file {}", opts.zone_file);
     let mut track_reader = csv::Reader::from_reader(File::open(&opts.zone_file)?);
 
     let mut zones: Vec<Zone> = vec![];
     for result in track_reader.records() {
-        zones.push(result?.try_into()?);
+        let result = result?;
+        let id = result[1].parse::<usize>()?;
+
+        if allowed_tracks.iter().any(|track| track.id == id) {
+            zones.push(result.try_into()?);
+        }
     }
 
     return Ok(zones);

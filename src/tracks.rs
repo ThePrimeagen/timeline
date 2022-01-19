@@ -1,8 +1,8 @@
 use csv::StringRecord;
 
 pub struct Track {
-    name: String,
-    id: usize,
+    pub name: String,
+    pub id: usize,
 }
 
 impl TryInto<Track> for StringRecord {

@@ -4,14 +4,14 @@ use serde::Deserialize;
 
 use crate::{
     error::TimelineError,
-    zone_search::{contained_ignores, get_by_name, partial_intersect},
+    zone_search::{get_by_name, partial_intersect, contains_intersect, filter_by_name_on_idx, filter_out_contains, sum_zone_indices},
     zones::Zone,
 };
 
 #[derive(Debug, Deserialize)]
 pub struct SelfTime {
     pub node: String,
-    pub partial_ignore: Option<Vec<String>>,
+    pub partial_ignore: Vec<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -92,21 +92,38 @@ fn self_time_query(query: &SelfTime, config: &QueryConfig, zones: &Vec<Zone>) ->
             return zones.get(*z_idx);
         })
         .map(|z| {
-            let partial_intersect_duration_ignores =
-                sum_partial_intersection(zones, &z, &query.partial_ignore);
 
-            let ignore_durations: u64 = contained_ignores(zones, z.idx, config.ignores.clone())
-                .iter()
-                .map(|&x| x as u64)
-                .sum();
+            let partials = filter_by_name_on_idx(
+                zones,
+                &partial_intersect(zones, z.idx),
+                &query.partial_ignore,
+            );
+
+            // TODO: Should I filter out contains with contains...?
+            let contains = filter_by_name_on_idx(
+                zones,
+                &contains_intersect(zones, z.idx),
+                &config.ignores
+            );
+
+            let contains = filter_out_contains(
+                zones,
+                &partials,
+                &contains,
+            );
+
+            // TODO: filter out sub contains within contains
+
+            let partials = sum_zone_indices(zones, &z, &partials);
+            let contains = sum_zone_indices(zones, &z, &contains);
 
             return QueryResult {
                 query: "SelfTime".to_string(),
                 name: z.name.clone(),
                 count: z
                     .duration
-                    .saturating_sub(partial_intersect_duration_ignores)
-                    .saturating_sub(ignore_durations),
+                    .saturating_sub(partials)
+                    .saturating_sub(contains),
                 additional_data: None,
             };
         })
@@ -131,8 +148,8 @@ pub fn run_query(
 
 #[cfg(test)]
 mod test {
+    use crate::zone_search::set_zone_idx;
     use super::*;
-    use crate::{zone_search::set_zone_idx, zones::Zone};
 
     #[test]
     fn test_self_time_query() {
@@ -146,7 +163,7 @@ mod test {
         set_zone_idx(&mut zones);
 
         let self_time = SelfTime {
-            partial_ignore: Some(vec!["foo".to_string()]),
+            partial_ignore: vec!["foo".to_string()],
             node: "foo2".to_string(),
         };
 
@@ -174,7 +191,7 @@ mod test {
         let mut zones = vec![
             Zone::new("foo".to_string(), 8, 20),
             Zone::new("foo2".to_string(), 10, 50),
-            Zone::new("ignore-me".to_string(), 10, 50),
+            Zone::new("ignore-me".to_string(), 25, 30),
             Zone::new("foo".to_string(), 30, 40),
             Zone::new("foo".to_string(), 48, 55),
         ];
@@ -182,12 +199,12 @@ mod test {
         set_zone_idx(&mut zones);
 
         let self_time = SelfTime {
-            partial_ignore: Some(vec!["foo".to_string()]),
+            partial_ignore: vec!["foo".to_string()],
             node: "foo2".to_string(),
         };
 
         let config = QueryConfig {
-            ignores: Rc::new(vec![]),
+            ignores: Rc::new(vec!["ignore-me".to_string()]),
             queries: vec![],
         };
 
@@ -199,7 +216,7 @@ mod test {
             QueryResult {
                 query: "SelfTime".to_string(),
                 name: "foo2".to_string(),
-                count: 28,
+                count: 23,
                 additional_data: None,
             }
         )
