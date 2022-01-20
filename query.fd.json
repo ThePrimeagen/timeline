@@ -1,20 +1,13 @@
 {
-    "root": "setFD",
     "ignores": [
         "V8TracingController.AddTraceEvent",
-        "V8TracingController.UpdateTraceEventDuration"
-    ],
-    "zones": [
-        "setFD",
-        "ClientStream#processFrames",
-        "onRTPPacketReceived"
+        "V8TracingController.UpdateTraceEventDuration",
+        "Telemetry Get New Buffer"
     ],
     "queries": [{
-        "type": "Count",
-        "root": "setFD",
-        "child_name": "onRTPPacketReceived"
+        "type": "SelfTime",
+        "node": "onRTPPacketReceived",
+        "partial_ignore": ["V8.Builtin_HandleApiCall"],
     }]
 }
-
-
 

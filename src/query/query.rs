@@ -54,7 +54,6 @@ pub struct CostResult {
     pub name: String,
     pub cpp_duration: u64,
     pub cost_of_javascript: u64,
-    pub cost_of_generated_bridge_method: u64,
     pub cost_of_args: u64,
 }
 
@@ -94,12 +93,11 @@ impl Display for QueryResult {
             QueryResult::Cost(c) => {
                 return write!(
                     f,
-                    "{},{},{},{},{}",
+                    "{},{},{},{}",
                     &c.name,
-                    c.cpp_duration,
                     c.cost_of_javascript,
-                    c.cost_of_generated_bridge_method,
-                    c.cost_of_args
+                    c.cost_of_args,
+                    c.cpp_duration,
                 );
             }
         }

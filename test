@@ -1,0 +1,18 @@
+#/usr/bin/env bash
+echo "Calculating odroid"
+cargo run --release --bin timeline -- \
+    --query-file query.json \
+    --track-file data/odroid.csv.tracks.csv \
+    --zone-file data/odroid.csv.zones.csv > out
+
+echo "Calculating odroid with toArrayBuffer for rpc header parsing"
+cargo run --release --bin timeline -- \
+    --query-file query.json \
+    --track-file data/odroid.array.csv.tracks.csv \
+    --zone-file data/odroid.array.csv.zones.csv > out.array
+
+echo "odroid"
+docker run --rm -v $(pwd)/out:/app/analysis.csv:ro -v $(pwd)/analysis/main.py:/app/main.py:ro -v $(pwd)/images:/app/images -it pygen
+
+echo "odroid with array performance"
+docker run --rm -v $(pwd)/out.array:/app/analysis.csv:ro -v $(pwd)/analysis/main.py:/app/main.py:ro -v $(pwd)/images:/app/images -it pygen

@@ -1,5 +1,3 @@
-use log::{debug};
-
 use crate::zones::Zone;
 
 pub struct ZoneIdx(usize);
@@ -36,11 +34,41 @@ pub enum FilterResult {
 }
 
 fn partial_intersect_filter(zone: &Zone, z: &Zone) -> FilterResult {
+
     if zone.partial_contains(z) {
         return FilterResult::Add;
     } else if zone.contains(z) || z.contains(zone) {
         return FilterResult::Continue;
+
+    // The issue is that partial contains search can be stopped by simple different track item.
+    } else if zone.track_id != z.track_id {
+        return FilterResult::Continue;
     }
+    return FilterResult::Break;
+}
+
+fn get_parent_filter(zone: &Zone, z: &Zone) -> FilterResult {
+    if z.contains(zone) {
+        return FilterResult::Add;
+    // parents must be on the same track.
+    } else if zone.track_id != z.track_id {
+        return FilterResult::Continue;
+    // This i don't really know what to do.  There is a problem with toImplArgs causing me to lose
+    // my tree.  So I feel like I need to "allow" for a certain range of search.
+    } else if zone.start_time.abs_diff(z.start_time) < 100000 { // less than 100 micro seconds
+        return FilterResult::Continue;
+    }
+
+    return FilterResult::Break;
+}
+
+fn contain_on_track_only_filter(zone: &Zone, z: &Zone) -> FilterResult {
+    if zone.contains(z) {
+        return FilterResult::Add;
+    } else if zone.track_id != z.track_id {
+        return FilterResult::Continue;
+    }
+
     return FilterResult::Break;
 }
 
@@ -48,6 +76,7 @@ fn contain_intersect_filter(zone: &Zone, z: &Zone) -> FilterResult {
     if zone.contains(z) {
         return FilterResult::Add;
     }
+
     return FilterResult::Break;
 }
 
@@ -151,7 +180,7 @@ pub fn filter_out_contains(
     return out;
 }
 
-pub fn filter_by_name_on_idx(
+pub fn filter_by_names_on_idx(
     zones: &Vec<Zone>,
     filter_zones: &Vec<usize>,
     names: &Vec<String>,
@@ -168,11 +197,35 @@ pub fn filter_by_name_on_idx(
     return out;
 }
 
-pub fn filter_by_name(zones: &Vec<Zone>, names: &Vec<String>) -> Vec<usize> {
+pub fn filter_by_name_on_idx(zones: &Vec<Zone>, zones_to_filter: &Vec<usize>, name: &str) -> Vec<usize> {
+    let mut out = vec![];
+
+    for zone_idx in zones_to_filter {
+        let zone = zones.get(*zone_idx).unwrap();
+        if zone.name == name {
+            out.push(zone.idx);
+        }
+    }
+
+    return out;
+}
+
+pub fn filter_by_name(zones: &Vec<Zone>, name: &str) -> Vec<usize> {
     let mut out = vec![];
 
     for zone in zones {
-        debug!("filter_by_name: {:?} -- {:?}", names, zone.name);
+        if zone.name == name {
+            out.push(zone.idx);
+        }
+    }
+
+    return out;
+}
+
+pub fn filter_by_names(zones: &Vec<Zone>, names: &Vec<String>) -> Vec<usize> {
+    let mut out = vec![];
+
+    for zone in zones {
         if names.contains(&zone.name) {
             out.push(zone.idx);
         }
@@ -181,11 +234,26 @@ pub fn filter_by_name(zones: &Vec<Zone>, names: &Vec<String>) -> Vec<usize> {
     return out;
 }
 
-pub fn contains_intersect(zones: &Vec<Zone>, idx: usize) -> Vec<usize> {
+pub fn get_contained_by_name(zones: &Vec<Zone>, idx: usize, name: &str) -> Vec<usize> {
+    return intersect_by_filter(zones, idx, Box::new(contain_intersect_filter))
+        .into_iter()
+        .filter(|z_idx| zones.get(*z_idx).unwrap().name == name)
+        .collect();
+}
+
+pub fn get_parents(zones: &Vec<Zone>, idx: usize) -> Vec<usize> {
+    return intersect_by_filter(zones, idx, Box::new(get_parent_filter));
+}
+
+pub fn get_contained(zones: &Vec<Zone>, idx: usize) -> Vec<usize> {
     return intersect_by_filter(zones, idx, Box::new(contain_intersect_filter));
 }
 
-pub fn partial_intersect(zones: &Vec<Zone>, idx: usize) -> Vec<usize> {
+pub fn contained_on_track(zones: &Vec<Zone>, idx: usize) -> Vec<usize> {
+    return intersect_by_filter(zones, idx, Box::new(contain_on_track_only_filter));
+}
+
+pub fn get_partial_contained(zones: &Vec<Zone>, idx: usize) -> Vec<usize> {
     return intersect_by_filter(zones, idx, Box::new(partial_intersect_filter));
 }
 
@@ -207,7 +275,7 @@ mod test {
         ];
         set_zone_idx(&mut zones);
 
-        let filtered_zones = filter_by_name(&zones, &vec!["foo".to_string()]);
+        let filtered_zones = filter_by_names(&zones, &vec!["foo".to_string()]);
         assert_eq!(filtered_zones.len(), 3);
         assert_eq!(filtered_zones.get(0).unwrap(), &0);
         assert_eq!(filtered_zones.get(1).unwrap(), &2);
@@ -240,11 +308,11 @@ mod test {
         ];
         set_zone_idx(&mut zones);
 
-        assert_eq!(partial_intersect(&zones, 3), vec![2, 1, 5]);
+        assert_eq!(get_partial_contained(&zones, 3), vec![2, 1, 5]);
 
-        assert_eq!(partial_intersect(&zones, 5), vec![4, 3]);
+        assert_eq!(get_partial_contained(&zones, 5), vec![4, 3]);
 
-        assert_eq!(partial_intersect(&zones, 0), vec![1]);
+        assert_eq!(get_partial_contained(&zones, 0), vec![1]);
     }
 
     #[test]
@@ -256,7 +324,20 @@ mod test {
         set_zone_idx(&mut zones);
 
         let expected: Vec<usize> = vec![];
-        assert_eq!(partial_intersect(&zones, 1), expected);
+        assert_eq!(get_partial_contained(&zones, 1), expected);
+    }
+
+    #[test]
+    fn test_partial_off_track_no_search_stop() {
+        let mut zones = vec![
+            Zone::from_timestamps(5, 25),
+            Zone::new("foo6".to_string(), 8, 9, 1), // off track zone
+            Zone::from_timestamps(10, 50),
+        ];
+        set_zone_idx(&mut zones);
+
+        let expected: Vec<usize> = vec![0];
+        assert_eq!(get_partial_contained(&zones, 2), expected);
     }
 
     #[test]

@@ -26,12 +26,12 @@ def create_histograms(pf):
 
 pf = pd.read_csv(os.environ.get("FILE"))
 pf.columns = [
-    "measurement_type",
     "name",
-    "duration",
-    "additional_data",
+    "cost_of_javascript",
+    "cost_of_impl",
+    "cost_of_cpp",
 ]
 
 #create_histograms(pf)
-grouped = pf.groupby(['measurement_type', "name"])
+grouped = pf.groupby(['name'])
 print(grouped.describe())

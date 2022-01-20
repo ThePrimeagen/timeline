@@ -5,9 +5,8 @@
         "Telemetry Get New Buffer"
     ],
     "queries": [{
-        "type": "SelfTime",
-        "node": "onRTPPacketReceived",
-        "partial_ignore": ["V8.Builtin_HandleApiCall"]
+        "type": "Cost",
+        "node": "DataBufferBridge.set"
     }]
 }
 
