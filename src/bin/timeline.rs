@@ -1,9 +1,12 @@
-
-
-use calculate_differences::{error::TimelineError, opts::TimelineOpts, parse::{parse_tracks, parse_zones}, zone_search::{set_zone_idx}, query::{QueryConfig, run_query}};
+use calculate_differences::{
+    error::TimelineError,
+    opts::TimelineOpts,
+    parse::{parse_tracks, parse_zones},
+    query::{query_config::QueryConfig, run_query},
+    zone_search::set_zone_idx,
+};
 use log::info;
 use structopt::StructOpt;
-
 
 fn main() -> Result<(), TimelineError> {
     env_logger::init();
@@ -35,4 +38,3 @@ fn main() -> Result<(), TimelineError> {
 
     return Ok(());
 }
-

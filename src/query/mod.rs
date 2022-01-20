@@ -1,9 +1,7 @@
+pub mod query;
 pub mod query_config;
 
-use std::{fmt::Display, fs::File, io::BufReader, str::FromStr};
-
 use log::info;
-use serde::Deserialize;
 
 use crate::{
     error::TimelineError,
@@ -14,125 +12,7 @@ use crate::{
     zones::Zone,
 };
 
-#[derive(Debug, Deserialize)]
-pub struct Stat {
-    pub node: String,
-}
-
-#[derive(Debug, Deserialize)]
-pub struct Reduce {
-    pub node: String,
-    pub ignore_count: Option<usize>,
-}
-
-#[derive(Debug, Deserialize)]
-pub struct Cost {
-    pub node: String,
-}
-
-#[derive(Debug, Deserialize)]
-pub struct SelfTime {
-    pub node: String,
-    pub partial_ignore: Vec<String>,
-}
-
-#[derive(Debug, Deserialize)]
-#[serde(tag = "type")]
-pub enum Query {
-    SelfTime(SelfTime),
-    Reduce(Reduce),
-    Stat(Stat),
-    Cost(Cost),
-}
-
-#[derive(Debug, Deserialize)]
-pub struct QueryConfig {
-    pub ignores: Vec<String>,
-    pub queries: Vec<Query>,
-}
-
-impl FromStr for QueryConfig {
-    type Err = std::io::Error;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let file = File::open(s)?;
-        let reader = BufReader::new(file);
-        return Ok(serde_json::from_reader(reader)?);
-    }
-}
-
-#[derive(Debug, Eq, PartialEq)]
-pub struct DataPoint {
-    query: String,
-    name: String,
-    count: u64,
-    additional_data: Option<String>,
-}
-
-#[derive(Debug, Eq, PartialEq)]
-pub struct StatResult {
-    name: String,
-    start_time: u64,
-    end_time: u64,
-    duration: u64,
-}
-
-#[derive(Debug, Eq, PartialEq)]
-pub struct CostResult {
-    name: String,
-    cpp_duration: u64,
-    cost_of_javascript: u64,
-    cost_of_generated_bridge_method: u64,
-    cost_of_args: u64,
-}
-
-#[derive(Debug, Eq, PartialEq)]
-pub enum QueryResult {
-    DataPoint(DataPoint),
-    OriginalCsvRow(String),
-    Stat(StatResult),
-    Cost(CostResult),
-}
-
-impl Display for QueryResult {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            QueryResult::DataPoint(p) => {
-                return write!(
-                    f,
-                    "{},{},{},{}",
-                    p.query,
-                    p.name,
-                    p.count,
-                    p.additional_data.as_ref().unwrap_or(&"".to_string())
-                );
-            }
-            QueryResult::OriginalCsvRow(s) => {
-                return write!(f, "{}", s);
-            }
-
-            QueryResult::Stat(s) => {
-                return write!(
-                    f,
-                    "{},{},{},{}",
-                    &s.name, s.duration, s.start_time, s.end_time
-                );
-            }
-
-            QueryResult::Cost(c) => {
-                return write!(
-                    f,
-                    "{},{},{},{},{}",
-                    &c.name,
-                    c.cpp_duration,
-                    c.cost_of_javascript,
-                    c.cost_of_generated_bridge_method,
-                    c.cost_of_args
-                );
-            }
-        }
-    }
-}
+use self::{query::{QueryResult, SelfTime, DataPoint, Reduce, StatResult, Query, Stat, Cost}, query_config::QueryConfig};
 
 fn index_to_original_csv(zones: &Vec<Zone>, idx: usize) -> QueryResult {
     return QueryResult::OriginalCsvRow(
@@ -227,7 +107,7 @@ fn stat_query(stat: &Stat, zones: &Vec<Zone>) -> Vec<QueryResult> {
         .collect::<Vec<QueryResult>>();
 }
 
-fn cost_query(cost: &Cost, config: &QueryConfig, zones: &Vec<Zone>) -> Vec<QueryResult> {
+fn cost_query(_cost: &Cost, _config: &QueryConfig, _zones: &Vec<Zone>) -> Vec<QueryResult> {
     let out = vec![];
 
     return out;

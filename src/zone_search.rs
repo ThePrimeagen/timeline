@@ -1,4 +1,4 @@
-use log::{info, debug};
+use log::{debug};
 
 use crate::zones::Zone;
 
