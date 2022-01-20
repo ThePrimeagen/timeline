@@ -1,4 +1,4 @@
-use std::{fmt::Display, num::ParseIntError};
+use std::fmt::Display;
 
 use csv::StringRecord;
 use itertools::Itertools;
@@ -12,19 +12,8 @@ pub struct Zone {
     pub end_time: u64,
     pub duration: u64,
     pub idx: usize,
+    pub track_id: usize,
     pub original_csv: String,
-}
-
-impl Ord for Zone {
-    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        return self.start_time.cmp(&other.start_time);
-    }
-}
-
-impl PartialOrd for Zone {
-    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        return self.start_time.partial_cmp(&other.start_time);
-    }
 }
 
 impl Zone {
@@ -33,18 +22,20 @@ impl Zone {
             record[2].to_string(),
             record[3].parse()?,
             record[4].parse()?,
+            record[1].parse()?,
         );
         zone.original_csv = record.iter().join(",");
         return Ok(zone);
     }
 
-    pub fn new(name: String, start_time: u64, end_time: u64) -> Zone {
+    pub fn new(name: String, start_time: u64, end_time: u64, track_id: usize) -> Zone {
         return Zone {
             name,
             start_time,
             end_time,
             duration: start_time.abs_diff(end_time),
             idx: 0,
+            track_id,
             original_csv: "".to_string(),
         };
     }
@@ -62,8 +53,12 @@ impl Zone {
     }
 
     pub fn partial_contains(&self, zone: &Zone) -> bool {
-        return self.start_time > zone.start_time && self.start_time <= zone.end_time && self.end_time >= zone.end_time
-            || self.end_time < zone.end_time && self.end_time >= zone.start_time && self.start_time <= zone.start_time;
+        return self.start_time > zone.start_time
+            && self.start_time <= zone.end_time
+            && self.end_time >= zone.end_time
+            || self.end_time < zone.end_time
+                && self.end_time >= zone.start_time
+                && self.start_time <= zone.start_time;
     }
 
     pub fn get_duration_intersection(&self, zone: &Zone) -> u64 {
@@ -90,8 +85,8 @@ impl Display for Zone {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         return write!(
             f,
-            "Zone({}): {},{},{}",
-            self.duration, self.name, self.start_time, self.end_time
+            "{}: Zone({}): {},{},{}",
+            self.track_id, self.duration, self.name, self.start_time, self.end_time
         );
     }
 }
@@ -99,14 +94,15 @@ impl Display for Zone {
 #[cfg(test)]
 mod test {
     use super::*;
+    use crate::tests::TestZone;
 
     #[test]
     fn test_duration_intersection() {
-        let a = Zone::new("foo".to_string(), 10, 50);
-        let b = Zone::new("foo".to_string(), 8, 20);
-        let c = Zone::new("foo".to_string(), 48, 55);
-        let d = Zone::new("foo".to_string(), 30, 40);
-        let e = Zone::new("foo".to_string(), 55, 65);
+        let a = Zone::from_timestamps(10, 50);
+        let b = Zone::from_timestamps(8, 20);
+        let c = Zone::from_timestamps(48, 55);
+        let d = Zone::from_timestamps(30, 40);
+        let e = Zone::from_timestamps(55, 65);
 
         assert_eq!(a.get_duration_intersection(&b), 10);
         assert_eq!(a.get_duration_intersection(&c), 2);
@@ -116,11 +112,11 @@ mod test {
 
     #[test]
     fn test_contains() {
-        let a = Zone::new("foo".to_string(), 10, 50);
-        let b = Zone::new("foo".to_string(), 8, 20);
-        let c = Zone::new("foo".to_string(), 48, 55);
-        let d = Zone::new("foo".to_string(), 30, 40);
-        let e = Zone::new("foo".to_string(), 55, 65);
+        let a = Zone::from_timestamps(10, 50);
+        let b = Zone::from_timestamps(8, 20);
+        let c = Zone::from_timestamps(48, 55);
+        let d = Zone::from_timestamps(30, 40);
+        let e = Zone::from_timestamps(55, 65);
 
         assert_eq!(a.contains(&b), false);
         assert_eq!(a.contains(&c), false);

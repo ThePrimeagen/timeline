@@ -1,5 +1,4 @@
 {
-    "root": "V8.Execute",
     "ignores": [
         "V8TracingController.AddTraceEvent",
         "V8TracingController.UpdateTraceEventDuration",
@@ -7,7 +6,7 @@
     ],
     "queries": [{
         "type": "SelfTime",
-        "node": "onMsg",
+        "node": "onRTPPacketReceived",
         "partial_ignore": ["V8.Builtin_HandleApiCall"]
     }]
 }

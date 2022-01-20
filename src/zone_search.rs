@@ -1,3 +1,5 @@
+use log::{info, debug};
+
 use crate::zones::Zone;
 
 pub struct ZoneIdx(usize);
@@ -170,6 +172,7 @@ pub fn filter_by_name(zones: &Vec<Zone>, names: &Vec<String>) -> Vec<usize> {
     let mut out = vec![];
 
     for zone in zones {
+        debug!("filter_by_name: {:?} -- {:?}", names, zone.name);
         if names.contains(&zone.name) {
             out.push(zone.idx);
         }
@@ -190,16 +193,17 @@ pub fn partial_intersect(zones: &Vec<Zone>, idx: usize) -> Vec<usize> {
 mod test {
     use super::*;
     use pretty_assertions::assert_eq;
+    use crate::tests::TestZone;
 
     #[test]
     fn test_filter_by_name() {
         let mut zones = vec![
-            Zone::new("foo".to_string(), 8, 20),
-            Zone::new("foo2".to_string(), 10, 50),
-            Zone::new("foo".to_string(), 30, 40),
-            Zone::new("foo4".to_string(), 32, 56),
-            Zone::new("foo".to_string(), 48, 55),
-            Zone::new("foo6".to_string(), 55, 65),
+            Zone::new("foo".to_string(), 8, 20, 0),
+            Zone::new("foo2".to_string(), 10, 50, 0),
+            Zone::new("foo".to_string(), 30, 40, 0),
+            Zone::new("foo4".to_string(), 32, 56, 0),
+            Zone::new("foo".to_string(), 48, 55, 0),
+            Zone::new("foo6".to_string(), 55, 65, 0),
         ];
         set_zone_idx(&mut zones);
 
@@ -213,12 +217,12 @@ mod test {
     #[test]
     fn test_get_by_name() {
         let mut zones = vec![
-            Zone::new("foo".to_string(), 8, 20),
-            Zone::new("foo2".to_string(), 10, 50),
-            Zone::new("foo".to_string(), 30, 40),
-            Zone::new("foo4".to_string(), 32, 56),
-            Zone::new("foo".to_string(), 48, 55),
-            Zone::new("foo6".to_string(), 55, 65),
+            Zone::new("foo".to_string(), 8, 20, 0),
+            Zone::new("foo2".to_string(), 10, 50, 0),
+            Zone::new("foo".to_string(), 30, 40, 0),
+            Zone::new("foo4".to_string(), 32, 56, 0),
+            Zone::new("foo".to_string(), 48, 55, 0),
+            Zone::new("foo6".to_string(), 55, 65, 0),
         ];
         set_zone_idx(&mut zones);
 
@@ -227,12 +231,12 @@ mod test {
     #[test]
     fn test_partial_intersection() {
         let mut zones = vec![
-            Zone::new("foo".to_string(), 8, 20),
-            Zone::new("foo".to_string(), 10, 50),
-            Zone::new("foo".to_string(), 30, 40),
-            Zone::new("foo".to_string(), 32, 56),
-            Zone::new("foo".to_string(), 48, 55),
-            Zone::new("foo".to_string(), 55, 65),
+            Zone::from_timestamps(8, 20),
+            Zone::from_timestamps(10, 50),
+            Zone::from_timestamps(30, 40),
+            Zone::from_timestamps(32, 56),
+            Zone::from_timestamps(48, 55),
+            Zone::from_timestamps(55, 65),
         ];
         set_zone_idx(&mut zones);
 
@@ -246,8 +250,8 @@ mod test {
     #[test]
     fn test_partial_intersection_with_super_container() {
         let mut zones = vec![
-            Zone::new("foo".to_string(), 8, 55),
-            Zone::new("foo".to_string(), 10, 50),
+            Zone::from_timestamps(8, 55),
+            Zone::from_timestamps(10, 50),
         ];
         set_zone_idx(&mut zones);
 
@@ -258,10 +262,10 @@ mod test {
     #[test]
     fn test_filter_out_contains() {
         let mut zones = vec![
-            Zone::new("foo".to_string(), 8, 20),
-            Zone::new("foo".to_string(), 15, 18),
-            Zone::new("foo".to_string(), 10, 50),
-            Zone::new("foo".to_string(), 40, 42),
+            Zone::from_timestamps(8, 20),
+            Zone::from_timestamps(15, 18),
+            Zone::from_timestamps(10, 50),
+            Zone::from_timestamps(40, 42),
         ];
         set_zone_idx(&mut zones);
 

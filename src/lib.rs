@@ -3,6 +3,7 @@
 
 #[macro_use] extern crate pretty_assertions;
 
+pub mod tests;
 pub mod opts;
 pub mod zone_search;
 pub mod zones;
